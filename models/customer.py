@@ -1,6 +1,7 @@
 # app/models/customer.py
 from datetime import datetime
 from . import db
+from app.utils.timezone import now
 
 class Customer(db.Model):
     __tablename__ = 'customers'
@@ -18,12 +19,9 @@ class Customer(db.Model):
         index=True
     )
     remark = db.Column(db.Text)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # 关系
-    creator = db.relationship('User', backref='created_customers')
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, comment='创建人ID')
+    created_at = db.Column(db.DateTime, default=now)
+    updated_at = db.Column(db.DateTime, default=now, onupdate=now)
     
     def to_dict(self):
         return {
@@ -36,6 +34,7 @@ class Customer(db.Model):
             'deal_date': self.deal_date.isoformat() if self.deal_date else None,
             'status': self.status,
             'remark': self.remark,
+            'created_by': self.created_by,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
     

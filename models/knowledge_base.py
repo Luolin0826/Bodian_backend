@@ -16,6 +16,10 @@ class KnowledgeBase(db.Model):
     answer = db.Column(db.Text)
     related_questions = db.Column(db.Text)
     tags = db.Column(db.String(500))
+    unit = db.Column(db.String(100))  # 省份电网（如：浙江、山东等）
+    site = db.Column(db.String(100))  # 站点信息
+    source = db.Column(db.String(100))  # 数据来源
+    meta_data = db.Column(db.Text)  # JSON格式的元数据
     view_count = db.Column(db.Integer, default=0)
     is_published = db.Column(db.Boolean, default=True)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
@@ -31,9 +35,14 @@ class KnowledgeBase(db.Model):
             'answer': self.answer,
             'related_questions': self.related_questions,
             'tags': self.tags,
+            'unit': self.unit,
+            'site': self.site,
+            'source': self.source,
+            'metadata': self.meta_data,
             'view_count': self.view_count,
             'is_published': self.is_published,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
     
     def increment_view(self):

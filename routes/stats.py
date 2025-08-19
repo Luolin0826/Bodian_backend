@@ -4,6 +4,7 @@ from flask_jwt_extended import jwt_required
 from datetime import datetime, timedelta
 from app.models import db, Customer, Script, KnowledgeBase
 from sqlalchemy import func
+from app.utils.timezone import now, today
 
 stats_bp = Blueprint('stats', __name__)
 
@@ -17,13 +18,13 @@ def get_dashboard_stats():
     deal_customers = Customer.query.filter_by(status='已成交').count()
     
     # 今日新增
-    today = datetime.now().date()
+    today_date = today()
     today_customers = Customer.query.filter(
-        func.date(Customer.created_at) == today
+        func.date(Customer.created_at) == today_date
     ).count()
     
     # 本月新增
-    month_start = datetime.now().replace(day=1).date()
+    month_start = now().replace(day=1).date()
     month_customers = Customer.query.filter(
         func.date(Customer.created_at) >= month_start
     ).count()
