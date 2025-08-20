@@ -56,7 +56,12 @@ def create_app(config_name='development'):
     
     # 注册蓝图
     from app.routes import (auth_bp, customers_bp, scripts_bp, knowledge_bp, stats_bp,
-                           departments_bp, users_bp, roles_bp, operation_logs_bp)
+                           departments_bp, users_bp, roles_bp, operation_logs_bp,
+                           follow_up_records_bp, follow_up_reminders_bp)
+    from app.routes.user_profile import user_profile_bp
+    from app.routes.user_preferences import user_preferences_bp
+    from app.routes.notifications import notifications_bp
+    from app.routes.security import security_bp
     from app.models import User
     
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
@@ -68,6 +73,14 @@ def create_app(config_name='development'):
     app.register_blueprint(users_bp, url_prefix='/api/v1')
     app.register_blueprint(roles_bp, url_prefix='/api/v1/roles')
     app.register_blueprint(operation_logs_bp, url_prefix='/api/v1')
+    app.register_blueprint(follow_up_records_bp, url_prefix='/api/v1')
+    app.register_blueprint(follow_up_reminders_bp, url_prefix='/api/v1')
+    
+    # 用户中心相关蓝图
+    app.register_blueprint(user_profile_bp, url_prefix='/api/v1/user')
+    app.register_blueprint(user_preferences_bp, url_prefix='/api/v1/user')
+    app.register_blueprint(notifications_bp, url_prefix='/api/v1/notifications')
+    app.register_blueprint(security_bp, url_prefix='/api/v1/user')
     
     # 健康检查路由
     @app.route('/api/health')
