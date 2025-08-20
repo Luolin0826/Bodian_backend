@@ -223,10 +223,19 @@ def update_user(user_id):
         
         # 验证部门
         old_department_id = user.department_id
-        if data.get('department_id') and data['department_id'] != user.department_id:
-            department = Department.query.get(data['department_id'])
-            if not department:
-                return jsonify({'code': 400, 'message': '部门不存在'}), 400
+        if data.get('department_id'):
+            # 处理department_id可能是数组的情况
+            dept_id = data['department_id']
+            if isinstance(dept_id, list):
+                # 如果是数组，取第一个值
+                dept_id = dept_id[0] if dept_id else None
+            
+            if dept_id and dept_id != user.department_id:
+                department = Department.query.get(dept_id)
+                if not department:
+                    return jsonify({'code': 400, 'message': '部门不存在'}), 400
+                # 更新data中的department_id为单个值
+                data['department_id'] = dept_id
         
         # 更新用户信息
         for field in ['username', 'real_name', 'email', 'phone', 'role', 'department_id', 'is_active']:
