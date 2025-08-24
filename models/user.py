@@ -3,6 +3,7 @@ from datetime import datetime
 import bcrypt
 from . import db
 from app.utils.timezone import now
+from app.utils.avatar_utils import process_avatar_value, get_default_avatar
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -46,7 +47,7 @@ class User(db.Model):
             'department_id': self.department_id,
             'department_name': department_name,
             'hire_date': self.hire_date.isoformat() if self.hire_date else None,
-            'avatar': self.avatar,
+            'avatar': process_avatar_value(self.avatar),
             'is_active': self.is_active,
             'last_login': self.last_login.isoformat() if self.last_login else None,
             'created_at': self.created_at.isoformat() if self.created_at else None

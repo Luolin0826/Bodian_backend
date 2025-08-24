@@ -143,23 +143,32 @@ def create_user():
             if existing_email:
                 return jsonify({'code': 400, 'message': '邮箱已存在'}), 400
         
-        # 验证部门
+        # 处理部门ID - 如果是数组则取第一个，如果是单个值则直接使用
+        department_id = None
         if data.get('department_id'):
-            department = Department.query.get(data['department_id'])
+            dept_data = data['department_id']
+            if isinstance(dept_data, list):
+                department_id = dept_data[0] if dept_data else None
+            else:
+                department_id = dept_data
+        
+        # 验证部门
+        if department_id:
+            department = Department.query.get(department_id)
             if not department:
                 return jsonify({'code': 400, 'message': '部门不存在'}), 400
         
         # 生成员工工号
         employee_no = None
-        if data.get('department_id'):
-            hire_date = None
+        hire_date = None
+        if department_id:
             if data.get('hire_date'):
                 try:
                     hire_date = datetime.strptime(data['hire_date'], '%Y-%m-%d').date()
                 except ValueError:
                     return jsonify({'code': 400, 'message': '入职日期格式错误'}), 400
             
-            employee_no = EmployeeUtils.generate_employee_no(data['department_id'], hire_date)
+            employee_no = EmployeeUtils.generate_employee_no(department_id, hire_date)
         
         # 创建用户
         user = User(
@@ -169,8 +178,8 @@ def create_user():
             phone=data.get('phone'),
             role=data.get('role', 'viewer'),
             employee_no=employee_no,
-            department_id=data.get('department_id'),
-            hire_date=hire_date if data.get('hire_date') else None
+            department_id=department_id,
+            hire_date=hire_date
         )
         user.set_password(data['password'])
         

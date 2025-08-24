@@ -8,6 +8,7 @@ from sqlalchemy import func, desc, or_
 knowledge_bp = Blueprint('knowledge', __name__)
 
 @knowledge_bp.route('/search', methods=['GET'])
+@jwt_required()
 def search_knowledge():
     """搜索知识库"""
     keyword = request.args.get('keyword', '')
@@ -55,11 +56,13 @@ def search_knowledge():
     })
 
 @knowledge_bp.route('/types', methods=['GET'])
+@jwt_required()
 def get_types():
     """获取知识类型"""
     return jsonify(['电网考试', '考研', '校招', '其他'])
 
 @knowledge_bp.route('/categories', methods=['GET'])
+@jwt_required()
 def get_categories():
     """获取知识分类"""
     type_ = request.args.get('type')
@@ -76,6 +79,7 @@ def get_categories():
     return jsonify([c[0] for c in categories if c[0]])
 
 @knowledge_bp.route('/stats', methods=['GET'])
+@jwt_required()
 def get_knowledge_stats():
     """获取知识库统计数据"""
     try:
@@ -111,6 +115,7 @@ def get_knowledge_stats():
         return jsonify({'error': str(e)}), 500
 
 @knowledge_bp.route('/type-stats', methods=['GET'])
+@jwt_required()
 def get_knowledge_type_stats():
     """获取知识库类型统计"""
     try:
@@ -140,6 +145,7 @@ def get_knowledge_type_stats():
         return jsonify({'error': str(e)}), 500
 
 @knowledge_bp.route('/unit-stats', methods=['GET'])
+@jwt_required()
 def get_knowledge_unit_stats():
     """获取省份电网统计"""
     try:
@@ -164,6 +170,7 @@ def get_knowledge_unit_stats():
         return jsonify({'error': str(e)}), 500
 
 @knowledge_bp.route('/popular-tags', methods=['GET'])
+@jwt_required()
 def get_popular_tags():
     """获取热门标签"""
     try:
@@ -191,6 +198,7 @@ def get_popular_tags():
         return jsonify({'error': str(e)}), 500
 
 @knowledge_bp.route('/category-options', methods=['GET'])
+@jwt_required()
 def get_category_options():
     """获取指定类型的分类选项"""
     try:

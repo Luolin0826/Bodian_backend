@@ -1,6 +1,7 @@
 # app/models/department.py
 from datetime import datetime
 from . import db
+from app.utils.timezone import now
 
 class Department(db.Model):
     __tablename__ = 'departments'
@@ -15,8 +16,8 @@ class Department(db.Model):
     description = db.Column(db.Text, nullable=True, comment='部门描述')
     is_active = db.Column(db.Boolean, default=True, comment='是否启用')
     employee_count = db.Column(db.Integer, default=0, comment='员工数量')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=now)
+    updated_at = db.Column(db.DateTime, default=now, onupdate=now)
     
     # 建立关系
     parent = db.relationship('Department', remote_side=[id], backref='children')

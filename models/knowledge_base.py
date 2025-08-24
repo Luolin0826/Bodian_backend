@@ -1,6 +1,7 @@
 # app/models/knowledge_base.py
 from datetime import datetime
 from . import db
+from app.utils.timezone import now
 
 class KnowledgeBase(db.Model):
     __tablename__ = 'knowledge_base'
@@ -23,8 +24,8 @@ class KnowledgeBase(db.Model):
     view_count = db.Column(db.Integer, default=0)
     is_published = db.Column(db.Boolean, default=True)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=now)
+    updated_at = db.Column(db.DateTime, default=now, onupdate=now)
     
     def to_dict(self):
         return {

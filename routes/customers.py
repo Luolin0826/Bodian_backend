@@ -143,11 +143,24 @@ def update_customer(id):
 @jwt_required()
 def delete_customer(id):
     """删除客户"""
-    customer = Customer.query.get_or_404(id)
-    db.session.delete(customer)
-    db.session.commit()
-    
-    return jsonify({'message': '客户删除成功'})
+    try:
+        customer = Customer.query.get_or_404(id)
+        
+        # 删除相关的跟进记录
+        FollowUpRecord.query.filter_by(customer_id=id).delete()
+        
+        # 删除相关的跟进提醒
+        FollowUpReminder.query.filter_by(customer_id=id).delete()
+        
+        # 删除客户
+        db.session.delete(customer)
+        db.session.commit()
+        
+        return jsonify({'message': '客户删除成功'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Internal server error'}), 500
 
 @customers_bp.route('/customers/<int:id>/detail', methods=['GET'])
 @jwt_required()

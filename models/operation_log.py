@@ -1,6 +1,7 @@
 # app/models/operation_log.py
 from datetime import datetime
 from . import db
+from app.utils.timezone import now
 
 class OperationLog(db.Model):
     __tablename__ = 'operation_logs'
@@ -17,7 +18,7 @@ class OperationLog(db.Model):
     ip_address = db.Column(db.String(45), nullable=False, comment='IP地址')
     user_agent = db.Column(db.Text, nullable=True, comment='用户代理')
     sensitive_operation = db.Column(db.Boolean, default=False, comment='是否敏感操作')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=now)
     
     # 建立关系
     user = db.relationship('User', foreign_keys=[user_id])

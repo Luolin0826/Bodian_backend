@@ -280,7 +280,12 @@ def update_role_permissions(role_name):
             return jsonify({'error': '角色不存在'}), 404
         
         data = request.get_json()
-        permissions = data.get('permissions', {})
+        # 兼容两种数据格式：直接发送权限数据 或 包含在permissions字段中
+        if 'permissions' in data:
+            permissions = data.get('permissions', {})
+        else:
+            # 直接使用请求数据作为权限数据
+            permissions = data
         
         # 权限验证 - 获取当前用户权限等级
         current_user_id = get_jwt_identity()
@@ -313,10 +318,20 @@ def update_role_permissions(role_name):
                     return jsonify({'error': validation_error}), 403
         
         # 更新权限
+        print(f"DEBUG: Updating permissions for role {role_name}")
+        print(f"DEBUG: Original permissions: {role.permissions}")
+        print(f"DEBUG: New permissions: {permissions}")
+        
         role.permissions = permissions
         role.updated_at = datetime.utcnow()
         
+        print(f"DEBUG: Role permissions after assignment: {role.permissions}")
+        
         db.session.commit()
+        
+        # 验证保存是否成功
+        updated_role = Role.query.filter_by(name=role_name).first()
+        print(f"DEBUG: Permissions after commit: {updated_role.permissions}")
         
         return jsonify({'message': '权限配置更新成功'})
     

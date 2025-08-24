@@ -2,6 +2,7 @@
 from datetime import datetime
 from . import db
 import json
+from app.utils.timezone import now
 
 class Role(db.Model):
     __tablename__ = 'roles'
@@ -14,8 +15,8 @@ class Role(db.Model):
     permissions = db.Column(db.JSON, nullable=True, comment='权限配置JSON')
     is_system = db.Column(db.Boolean, default=False, comment='是否为系统内置角色')
     is_active = db.Column(db.Boolean, default=True, comment='是否启用')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=now)
+    updated_at = db.Column(db.DateTime, default=now, onupdate=now)
     
     # 创建索引
     __table_args__ = (
@@ -129,8 +130,8 @@ class PermissionTemplate(db.Model):
     role_type = db.Column(db.String(50), nullable=False, comment='适用角色类型')
     permissions = db.Column(db.JSON, nullable=False, comment='权限配置JSON')
     is_builtin = db.Column(db.Boolean, default=False, comment='是否为内置模板')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=now)
+    updated_at = db.Column(db.DateTime, default=now, onupdate=now)
     
     def to_dict(self):
         return {

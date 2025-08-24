@@ -30,7 +30,12 @@ def create_app(config_name='development'):
              "http://dev_frontend:3000",
              "http://dev_frontend:8088",
              "http://127.0.0.1:*",
-             "http://0.0.0.0:*"
+             "http://0.0.0.0:*",
+             # 生产环境域名
+             "http://47.101.39.246",
+             "http://47.101.39.246:*",
+             "https://47.101.39.246",
+             "https://47.101.39.246:*"
          ],
          resources={r"/api/*": {"origins": "*"}},
          allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Origin"],
@@ -57,14 +62,18 @@ def create_app(config_name='development'):
     # 注册蓝图
     from app.routes import (auth_bp, customers_bp, scripts_bp, knowledge_bp, stats_bp,
                            departments_bp, users_bp, roles_bp, operation_logs_bp,
-                           follow_up_records_bp, follow_up_reminders_bp)
+                           follow_up_records_bp, follow_up_reminders_bp, recruitment_bp)
     from app.routes.user_profile import user_profile_bp
     from app.routes.user_preferences import user_preferences_bp
     from app.routes.notifications import notifications_bp
     from app.routes.security import security_bp
+    from app.routes.avatars import avatars_bp
     from app.models import User
     
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
+    # 临时兼容Nginx代理配置（去除/api前缀的路径）
+    from app.routes.auth import auth_bp as auth_bp_proxy
+    app.register_blueprint(auth_bp_proxy, url_prefix='/v1/auth', name='auth_proxy')
     app.register_blueprint(customers_bp, url_prefix='/api/v1')
     app.register_blueprint(scripts_bp, url_prefix='/api/v1/scripts')
     app.register_blueprint(knowledge_bp, url_prefix='/api/v1/knowledge')
@@ -75,12 +84,36 @@ def create_app(config_name='development'):
     app.register_blueprint(operation_logs_bp, url_prefix='/api/v1')
     app.register_blueprint(follow_up_records_bp, url_prefix='/api/v1')
     app.register_blueprint(follow_up_reminders_bp, url_prefix='/api/v1')
+    # 临时禁用旧的recruitment_bp，使用新的updated_recruitment_api
+    # app.register_blueprint(recruitment_bp, url_prefix='/api/v1')
+    
+    # 注册新的招聘数据API v2
+    try:
+        import sys
+        import os
+        sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+        from updated_recruitment_api import updated_recruitment_bp
+        from frontend_analytics_api import frontend_analytics_bp
+        from data_search_api import data_search_bp
+        
+        app.register_blueprint(updated_recruitment_bp, url_prefix='/api/v1')
+        app.register_blueprint(frontend_analytics_bp, url_prefix='/api/v1')
+        app.register_blueprint(data_search_bp, url_prefix='/api/v1/data-search')
+        print("✓ 已注册新招聘数据API (v1)")
+        print("✓ 已注册前端分析API (v1)")
+        print("✓ 已注册数查一点通API (v1)")
+    except Exception as e:
+        print(f"⚠ 注册新API失败: {e}")
     
     # 用户中心相关蓝图
     app.register_blueprint(user_profile_bp, url_prefix='/api/v1/user')
     app.register_blueprint(user_preferences_bp, url_prefix='/api/v1/user')
     app.register_blueprint(notifications_bp, url_prefix='/api/v1/notifications')
     app.register_blueprint(security_bp, url_prefix='/api/v1/user')
+    app.register_blueprint(avatars_bp, url_prefix='/api/v1/avatars')
+    # 临时兼容Nginx代理配置（去除/api前缀的路径）
+    from app.routes.avatars import avatars_bp as avatars_bp_proxy
+    app.register_blueprint(avatars_bp_proxy, url_prefix='/v1/avatars', name='avatars_proxy')
     
     # 健康检查路由
     @app.route('/api/health')
