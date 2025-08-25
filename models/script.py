@@ -44,12 +44,15 @@ class Script(db.Model):
                                     default='completed', comment='分类处理状态')
     classification_version = db.Column(db.String(20), default='v2.0', comment='分类体系版本')
     
+    # 新分类系统外键
+    category_id = db.Column(db.Integer, db.ForeignKey('script_categories.id'), comment='分类ID')
+    
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     created_at = db.Column(db.DateTime, default=now)
     updated_at = db.Column(db.DateTime, default=now, onupdate=now)
     
     def to_dict(self):
-        return {
+        data = {
             'id': self.id,
             'category': self.category,
             'title': self.title,
@@ -66,6 +69,8 @@ class Script(db.Model):
             'customer_info': self.customer_info,
             'script_type': self.script_type,
             'data_source': self.data_source,
+            # 新分类系统字段
+            'category_id': self.category_id,
             # 三维分类字段
             # 新分类字段
             'primary_category': self.primary_category,
@@ -81,6 +86,17 @@ class Script(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
+        
+        # 包含分类信息（如果有）
+        if hasattr(self, 'script_category') and self.script_category:
+            data['category_info'] = {
+                'id': self.script_category.id,
+                'name': self.script_category.name,
+                'description': self.script_category.description,
+                'icon': self.script_category.icon
+            }
+        
+        return data
     
     def increment_usage(self):
         """增加使用次数"""
@@ -396,6 +412,9 @@ class Script(db.Model):
                 cls.platform_new.isnot(None)
             ).count()
         }
+    
+    # 关系定义（需要在类的最后定义）
+    script_category = db.relationship('ScriptCategory', foreign_keys=[category_id], lazy='select')
     
     def __repr__(self):
         return f'<Script {self.title}>'

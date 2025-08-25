@@ -1,7 +1,7 @@
 # app/routes/scripts.py
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, jwt_required
-from app.models import db, Script, ScriptFavorite
+from app.models import db, Script, ScriptFavorite, ScriptCategory
 from app.utils.auth_decorators import require_permission, log_operation
 
 scripts_bp = Blueprint('scripts', __name__)
@@ -64,6 +64,26 @@ def search_scripts():
             query = query.filter(Script.primary_category == primary_category)
         if secondary_category:
             query = query.filter(Script.secondary_category == secondary_category)
+            
+        # 新分类系统筛选条件
+        category_id = request.args.get('category_id')
+        if category_id:
+            try:
+                category_id = int(category_id)
+                # 检查是否需要包含子分类
+                include_children = request.args.get('include_children', 'true').lower() == 'true'
+                
+                if include_children:
+                    # 获取分类及其所有子分类的ID
+                    category = ScriptCategory.query.get(category_id)
+                    if category:
+                        child_ids = category.get_all_child_ids()
+                        child_ids.append(category_id)
+                        query = query.filter(Script.category_id.in_(child_ids))
+                else:
+                    query = query.filter(Script.category_id == category_id)
+            except (ValueError, TypeError):
+                pass  # 忽略无效的category_id
         
         # 关键词搜索（支持新旧关键词字段）
         if keyword:
@@ -146,17 +166,41 @@ def search_scripts():
 @scripts_bp.route('/categories', methods=['GET'])
 @jwt_required()
 def get_categories():
-    """获取话术分类"""
+    """获取话术分类（兼容旧接口，优先使用新分类系统）"""
     try:
-        categories = db.session.query(Script.category).distinct().filter(
-            Script.category.isnot(None),
-            Script.is_active == True
-        ).all()
-        return jsonify({
-            'code': 200,
-            'message': 'success',
-            'data': [c[0] for c in categories if c[0]]
-        })
+        use_new_system = request.args.get('use_new', 'true').lower() == 'true'
+        include_stats = request.args.get('include_stats', 'false').lower() == 'true'
+        
+        if use_new_system:
+            # 使用新的分类系统
+            categories = ScriptCategory.query.filter_by(is_active=True).order_by(
+                ScriptCategory.sort_order, ScriptCategory.name
+            ).all()
+            
+            categories_data = []
+            for category in categories:
+                category_data = category.to_dict(include_stats=include_stats)
+                categories_data.append(category_data)
+            
+            return jsonify({
+                'code': 200,
+                'message': 'success',
+                'data': categories_data,
+                'source': 'new_system'
+            })
+        else:
+            # 兼容旧的分类系统
+            categories = db.session.query(Script.category).distinct().filter(
+                Script.category.isnot(None),
+                Script.is_active == True
+            ).all()
+            
+            return jsonify({
+                'code': 200,
+                'message': 'success',
+                'data': [c[0] for c in categories if c[0]],
+                'source': 'legacy_system'
+            })
     except Exception as e:
         return jsonify({
             'code': 500,
@@ -429,12 +473,24 @@ def create_script():
         elif not old_type:
             old_type = 'grid_exam'  # 默认值
         
+        # 验证新分类系统的分类ID（如果提供）
+        category_id = data.get('category_id')
+        if category_id:
+            script_category = ScriptCategory.query.get(category_id)
+            if not script_category or not script_category.is_active:
+                return jsonify({
+                    'code': 400,
+                    'message': '指定的分类不存在或已被禁用'
+                }), 400
+
         script = Script(
             category=category,
             title=data.get('title') or '未命名话术',  # 确保title不为空
             question=data.get('question'),
             answer=data.get('answer', ''),
             keywords=data.get('keywords', ''),
+            # 新分类系统字段
+            category_id=category_id,
             # 旧字段（保持兼容性）
             type=old_type,
             source=data.get('source') or data.get('data_source') or '用户创建', 
@@ -490,6 +546,18 @@ def update_script(script_id):
             }), 404
         
         data = request.get_json()
+        
+        # 验证新分类系统的分类ID（如果提供）
+        if 'category_id' in data:
+            category_id = data['category_id']
+            if category_id is not None:
+                script_category = ScriptCategory.query.get(category_id)
+                if not script_category or not script_category.is_active:
+                    return jsonify({
+                        'code': 400,
+                        'message': '指定的分类不存在或已被禁用'
+                    }), 400
+            script.category_id = category_id
         
         # 更新字段（包括适配原有字段和新字段）
         field_mapping = {
@@ -761,4 +829,282 @@ def get_user_favorites():
         return jsonify({
             'code': 500,
             'message': f'获取收藏列表失败: {str(e)}'
+        }), 500
+
+# ==================== 分类管理接口 ====================
+
+@scripts_bp.route('/categories/manage', methods=['GET'])
+@jwt_required()
+def get_categories_manage():
+    """获取可管理的分类列表"""
+    try:
+        current_user_id = int(get_jwt_identity())
+        include_stats = request.args.get('include_stats', 'false').lower() == 'true'
+        include_system = request.args.get('include_system', 'true').lower() == 'true'
+        
+        categories = ScriptCategory.get_user_categories(
+            user_id=current_user_id, 
+            include_system=include_system
+        )
+        
+        categories_data = []
+        for category in categories:
+            category_data = category.to_dict(include_stats=include_stats)
+            categories_data.append(category_data)
+        
+        return jsonify({
+            'code': 200,
+            'message': 'success',
+            'data': categories_data
+        })
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'message': f'获取分类列表失败: {str(e)}'
+        }), 500
+
+@scripts_bp.route('/categories/tree', methods=['GET'])
+@jwt_required()
+def get_categories_tree():
+    """获取分类树结构"""
+    try:
+        include_stats = request.args.get('include_stats', 'false').lower() == 'true'
+        tree = ScriptCategory.get_tree(include_stats=include_stats)
+        
+        return jsonify({
+            'code': 200,
+            'message': 'success',
+            'data': tree
+        })
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'message': f'获取分类树失败: {str(e)}'
+        }), 500
+
+@scripts_bp.route('/categories', methods=['POST'])
+@jwt_required()
+@require_permission('operation', 'script.category.create')
+@log_operation('create', 'script_category', '创建话术分类')
+def create_category():
+    """创建分类"""
+    try:
+        data = request.get_json()
+        current_user_id = int(get_jwt_identity())
+        
+        # 验证必填字段
+        if not data.get('name'):
+            return jsonify({
+                'code': 400,
+                'message': '分类名称不能为空'
+            }), 400
+        
+        # 检查名称是否重复
+        existing = ScriptCategory.query.filter_by(
+            name=data['name'], 
+            parent_id=data.get('parent_id'),
+            is_active=True
+        ).first()
+        
+        if existing:
+            return jsonify({
+                'code': 400,
+                'message': '同级分类名称不能重复'
+            }), 400
+        
+        # 验证父分类（如果指定）
+        parent_category = None
+        if data.get('parent_id'):
+            parent_category = ScriptCategory.query.get(data['parent_id'])
+            if not parent_category or not parent_category.is_active:
+                return jsonify({
+                    'code': 400,
+                    'message': '父分类不存在'
+                }), 400
+        
+        category = ScriptCategory(
+            name=data['name'],
+            parent_id=data.get('parent_id'),
+            description=data.get('description', ''),
+            icon=data.get('icon', ''),
+            sort_order=data.get('sort_order', 0),
+            created_by=current_user_id
+        )
+        
+        db.session.add(category)
+        db.session.commit()
+        
+        return jsonify({
+            'code': 201,
+            'message': '分类创建成功',
+            'data': category.to_dict()
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'code': 500,
+            'message': f'创建分类失败: {str(e)}'
+        }), 500
+
+@scripts_bp.route('/categories/<int:category_id>', methods=['PUT'])
+@jwt_required()
+@require_permission('operation', 'script.category.edit')
+@log_operation('update', 'script_category', '更新话术分类')
+def update_category(category_id):
+    """更新分类"""
+    try:
+        category = ScriptCategory.query.get(category_id)
+        if not category or not category.is_active:
+            return jsonify({
+                'code': 404,
+                'message': '分类不存在'
+            }), 404
+        
+        current_user_id = int(get_jwt_identity())
+        from flask_jwt_extended import get_current_user
+        current_user = get_current_user()
+        
+        # 检查编辑权限
+        if not category.can_edit(current_user):
+            return jsonify({
+                'code': 403,
+                'message': '没有权限编辑该分类'
+            }), 403
+        
+        data = request.get_json()
+        
+        # 更新字段
+        if 'name' in data and data['name']:
+            # 检查名称重复（排除自己）
+            existing = ScriptCategory.query.filter_by(
+                name=data['name'],
+                parent_id=category.parent_id,
+                is_active=True
+            ).filter(ScriptCategory.id != category_id).first()
+            
+            if existing:
+                return jsonify({
+                    'code': 400,
+                    'message': '同级分类名称不能重复'
+                }), 400
+            
+            category.name = data['name']
+        
+        if 'description' in data:
+            category.description = data['description']
+        
+        if 'icon' in data:
+            category.icon = data['icon']
+        
+        if 'sort_order' in data:
+            category.sort_order = data['sort_order']
+        
+        db.session.commit()
+        
+        return jsonify({
+            'code': 200,
+            'message': '分类更新成功',
+            'data': category.to_dict()
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'code': 500,
+            'message': f'更新分类失败: {str(e)}'
+        }), 500
+
+@scripts_bp.route('/categories/<int:category_id>', methods=['DELETE'])
+@jwt_required()
+@require_permission('operation', 'script.category.delete')
+@log_operation('delete', 'script_category', '删除话术分类', sensitive=True)
+def delete_category(category_id):
+    """删除分类"""
+    try:
+        category = ScriptCategory.query.get(category_id)
+        if not category or not category.is_active:
+            return jsonify({
+                'code': 404,
+                'message': '分类不存在'
+            }), 404
+        
+        current_user_id = int(get_jwt_identity())
+        from flask_jwt_extended import get_current_user
+        current_user = get_current_user()
+        
+        # 检查删除权限
+        if not category.can_edit(current_user):
+            return jsonify({
+                'code': 403,
+                'message': '没有权限删除该分类'
+            }), 403
+        
+        # 检查是否可以删除
+        can_delete, message = category.can_delete()
+        if not can_delete:
+            return jsonify({
+                'code': 400,
+                'message': message
+            }), 400
+        
+        # 软删除
+        category.is_active = False
+        db.session.commit()
+        
+        return jsonify({
+            'code': 200,
+            'message': '分类删除成功'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'code': 500,
+            'message': f'删除分类失败: {str(e)}'
+        }), 500
+
+@scripts_bp.route('/categories/stats', methods=['GET'])
+@jwt_required()
+def get_categories_stats():
+    """获取分类统计"""
+    try:
+        stats = ScriptCategory.get_stats()
+        return jsonify({
+            'code': 200,
+            'message': 'success',
+            'data': stats
+        })
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'message': f'获取分类统计失败: {str(e)}'
+        }), 500
+
+@scripts_bp.route('/categories/init-default', methods=['POST'])
+@jwt_required()
+@require_permission('operation', 'script.category.create')
+@log_operation('create', 'script_category', '初始化默认分类')
+def init_default_categories():
+    """初始化默认分类（仅管理员可用）"""
+    try:
+        from flask_jwt_extended import get_current_user
+        current_user = get_current_user()
+        
+        # 只有超级管理员可以初始化默认分类
+        if current_user.role != 'super_admin':
+            return jsonify({
+                'code': 403,
+                'message': '只有超级管理员可以初始化默认分类'
+            }), 403
+        
+        created_categories = ScriptCategory.create_default_categories()
+        
+        return jsonify({
+            'code': 200,
+            'message': f'成功初始化{len(created_categories)}个默认分类',
+            'data': [cat.to_dict() for cat in created_categories]
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'code': 500,
+            'message': f'初始化默认分类失败: {str(e)}'
         }), 500

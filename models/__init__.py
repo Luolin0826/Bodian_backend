@@ -18,5 +18,6 @@ from .user_session import UserSession
 from .follow_up_record import FollowUpRecord
 from .follow_up_reminder import FollowUpReminder
 from .script_favorite import ScriptFavorite
+from .script_category import ScriptCategory
 
-__all__ = ['db', 'User', 'Customer', 'Script', 'KnowledgeBase', 'Department', 'Role', 'PermissionTemplate', 'OperationLog', 'UserPreferences', 'Notification', 'UserLoginLog', 'UserSession', 'FollowUpRecord', 'FollowUpReminder', 'ScriptFavorite']
+__all__ = ['db', 'User', 'Customer', 'Script', 'KnowledgeBase', 'Department', 'Role', 'PermissionTemplate', 'OperationLog', 'UserPreferences', 'Notification', 'UserLoginLog', 'UserSession', 'FollowUpRecord', 'FollowUpReminder', 'ScriptFavorite', 'ScriptCategory']
