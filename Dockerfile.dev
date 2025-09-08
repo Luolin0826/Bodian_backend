@@ -1,0 +1,116 @@
+# --- Stage 1: Base Image (所有环境的共同基础) ---
+# 包含所有环境都需要的基础配置和工具
+FROM python:3.11-slim-bookworm AS base
+
+# 设置环境变量
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# 统一更换为阿里云镜像源 (只需一次)
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
+    sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
+
+# 配置pip使用阿里云镜像 (只需一次)
+RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
+    pip config set global.trusted-host mirrors.aliyun.com
+
+WORKDIR /workspace
+
+
+# --- Stage 2: Python Dependency Builder (构建依赖层) ---
+# 这一层专门用来编译和安装Python包
+FROM base AS builder
+
+# 安装构建时需要的系统依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ make \
+    python3-dev \
+    default-libmysqlclient-dev \
+    pkg-config \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# 先复制依赖文件，利用缓存
+COPY ./requirements.txt /tmp/requirements.txt
+# 安装项目核心依赖
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+
+# --- Stage 3: Development Image (最终的开发镜像) ---
+# 这个镜像是我们进行日常开发时使用的
+FROM builder AS development
+
+# 安装开发时需要的额外系统工具
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    vim \
+    curl \
+    wget \
+    redis-tools \
+    iputils-ping \
+    net-tools \
+    procps \
+    nodejs \
+    npm \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# 安装开发时需要的额外Python包
+RUN pip install --no-cache-dir \
+    ipython ipdb black flake8 pylint \
+    pytest pytest-cov python-dotenv watchdog alembic requests
+
+# 创建开发用户
+RUN useradd -m -u 1001 developer && \
+    chown -R developer:developer /workspace
+
+# 设置开发环境变量
+ENV FLASK_ENV=development \
+    FLASK_DEBUG=1 \
+    PYTHONPATH=/workspace:$PYTHONPATH
+
+# 默认命令，保持容器运行以供开发
+CMD ["tail", "-f", "/dev/null"]
+
+
+# --- Stage 4: Production Image (最终的生产镜像) ---
+# 这个镜像是最终部署到服务器上的
+FROM base AS production
+
+# 只安装生产运行时必要的系统依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    mariadb-client \
+    curl \
+    netcat-traditional \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# 从 builder 阶段拷贝已经安装好的Python依赖，而不是重新安装
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# 复制应用代码
+COPY . /workspace
+
+# 创建日志目录和非root用户
+RUN mkdir -p /workspace/logs && \
+    useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /workspace
+
+USER appuser
+
+# 设置生产环境变量
+ENV FLASK_ENV=production \
+    PYTHONPATH=/workspace
+
+# 暴露端口和健康检查
+EXPOSE 5000
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5000/api/health || exit 1
+
+# 定义容器启动命令
+CMD ["python", "-m", "gunicorn", \
+     "-w", "4", \
+     "-k", "gevent", \
+     "-b", "0.0.0.0:5000", \
+     "--access-logfile", "/workspace/logs/access.log", \
+     "--error-logfile", "/workspace/logs/error.log", \
+     "--log-level", "info", \
+     "wsgi:app"]
