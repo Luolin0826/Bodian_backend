@@ -11,7 +11,8 @@
       "Bash(pkill:*)",
       "Bash(FLASK_ENV=development python run.py)",
       "Bash(mysql:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(mv:*)"
     ],
     "deny": [],
     "ask": [],
