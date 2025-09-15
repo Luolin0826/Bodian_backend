@@ -1,0 +1,15 @@
+[2025-09-10 15:45:58 +0000] [36098] [INFO] Starting gunicorn 21.2.0
+[2025-09-11 00:34:08 +0000] [18845] [INFO] Starting gunicorn 21.2.0
+[2025-09-13 17:12:32 +0000] [27612] [INFO] Starting gunicorn 21.2.0
+[2025-09-13 17:12:32 +0000] [27612] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2025-09-13 17:12:32 +0000] [27612] [ERROR] Retrying in 1 second.
+[2025-09-13 17:12:33 +0000] [27612] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2025-09-13 17:12:33 +0000] [27612] [ERROR] Retrying in 1 second.
+[2025-09-13 17:12:34 +0000] [27612] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2025-09-13 17:12:34 +0000] [27612] [ERROR] Retrying in 1 second.
+[2025-09-13 17:12:35 +0000] [27612] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2025-09-13 17:12:35 +0000] [27612] [ERROR] Retrying in 1 second.
+[2025-09-13 17:12:36 +0000] [27612] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2025-09-13 17:12:36 +0000] [27612] [ERROR] Retrying in 1 second.
+[2025-09-13 17:12:37 +0000] [27612] [ERROR] Can't connect to ('0.0.0.0', 5000)
+[2025-09-14 13:45:56 +0000] [46330] [INFO] Starting gunicorn 21.2.0

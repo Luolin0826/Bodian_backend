@@ -12,7 +12,7 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False, index=True)
     password = db.Column(db.String(255), nullable=False)
     real_name = db.Column(db.String(50))
-    role = db.Column(db.Enum('super_admin', 'admin', 'manager', 'sales', 'teacher', 'viewer'), default='viewer')
+    role = db.Column(db.Enum('super_admin', 'admin', 'manager', 'sales', 'teacher', 'viewer', 'student'), default='viewer')
     phone = db.Column(db.String(20))
     email = db.Column(db.String(100))
     employee_no = db.Column(db.String(20), unique=True, nullable=True, comment='工号')
